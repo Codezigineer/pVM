@@ -24,7 +24,7 @@ export class inode
         return this._stat;
     }
     
-    isType(mask: number)
+    isType(mask: number): boolean
     {
         return ((this.stat.mode & S_IFMT) == mask) as boolean;
     };
@@ -85,15 +85,14 @@ export class FileSystem extends inode
         sta.mtime                  = this._realStat.mtime;
         sta.ctime                  = this._realStat.ctime;
         sta.birthtime              = this._realStat.birthtime;
-        sta.blksize                = this._realStat.blksize;
         sta.size                   = this._realStat.size;
-        sta.mode                   = S_IFBLK;
+        sta.mode                   = S_IFDIR;
         sta.uid                    = this._realStat.uid;
         sta.gid                    = this._realStat.gid;
         sta.dev                    = 0, 
         sta.ino                    = 0, 
         sta.rdev                   = 0;
-        sta.blocks                 = Math.floor(this._realStat.size / 4096);
+        sta.blocks                 = Math.floor(this._realStat.size / 512);
         sta.nlink                  = 0;
         return sta;
     };

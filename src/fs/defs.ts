@@ -24,7 +24,10 @@ export class stat
     gid: number;
     rdev: number;
     size: number;
-    blksize: number;
+    get blksize(): number
+    {
+        return 4096;
+    };
     blocks: number;
     atime: Date;
     mtime: Date;

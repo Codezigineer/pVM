@@ -2,6 +2,7 @@ import {
     EACCES,
     EBADF,
     EEXIST,
+    EFAULT,
     EINVAL,
     EISDIR,
     ENAME2BIG,
@@ -19,6 +20,7 @@ export type FileDescOptions = {
 export class SyscallsList {
     private fs: FileSystem;
     cwd: string;
+    pid: number;
     openFds: inode[];
     fdOptions: FileDescOptions[];
     user: number;
@@ -95,6 +97,11 @@ export class SyscallsList {
             openF = this._open(dir);
             if(openF == -ENOENT)
                 return -ENOENT;
+            if(path.startsWith("."))
+            {
+                path = path.slice(1, 0);
+                path = addPath(this.cwd, path);
+            };
             let nodes = dir.split("/");
             let curNode: inode = this.fs.childrenFiles[nodes[0]];
             for (let i = 1; i != nodes.length; i += 1) {
@@ -107,17 +114,20 @@ export class SyscallsList {
                 };
             };
 
-            let file = this.fs.inodes.push(new inode());
-            this.fs.inodes[file].stat.ino = file;
+            let file                            = this.fs.inodes.push(new inode());
+            this.fs.inodes[file].stat.ino       = file;
             this.fs.inodes[file].stat.birthtime = new Date();
-            this.fs.inodes[file].stat.atime = this.fs.inodes[file].stat.birthtime;
-            this.fs.inodes[file].stat.mtime = this.fs.inodes[file].stat.birthtime;
-            this.fs.inodes[file].stat.ctime = this.fs.inodes[file].stat.birthtime;
+            this.fs.inodes[file].stat.atime     = this.fs.inodes[file].stat.birthtime;
+            this.fs.inodes[file].stat.mtime     = this.fs.inodes[file].stat.birthtime;
+            this.fs.inodes[file].stat.ctime     = this.fs.inodes[file].stat.birthtime;
+            this.fs.inodes[file].stat.mode      = mode;
+            this.fs.inodes[file].stat.size      = 0;
+            this.fs.inodes[file].stat.rdev      = this.fs.stat.rdev;
+            this.fs.inodes[file].stat.dev       = this.fs.stat.dev;
+            this.fs.inodes[file].stat.blocks    = 0;
+            this.fs.inodes[file].stat.uid       = this.user;
+            this.fs.inodes[file].stat.gid       = this.group;
 
-
-            curNode[path.replace(dir, "")]
-            (curNode[path.replace(dir, "")] as inode).stat.uid = this.user;
-            (curNode[path.replace(dir, "")] as inode).stat.gid = this.group;
         } else {
             this.close(openF);
         };
@@ -148,8 +158,12 @@ export class SyscallsList {
         
         let str: string[] = [];
 
-        for(let i = ptr; this.wasmMem[i] !== 0 || i === 2**24; i++)
+        for(let i = ptr; i > this.wasmMem.byteLength || this.wasmMem[i] !== 0 || i === 2**24; i++)
+        {
+            if(i > this.wasmMem.byteLength)
+                return "";
             str.push(String.fromCharCode(this.wasmMem[i]));
+        }
         
         return str.join();
     };
@@ -160,7 +174,7 @@ export class SyscallsList {
             return -EBADF;
         
         if(ptr < 0 || ptr % 1 !== 0 )
-            return -EINVAL;
+            return -EFAULT;
         
         if(this.openFds[fd].directory)
             return -EISDIR;
@@ -170,8 +184,38 @@ export class SyscallsList {
         let text = new Uint8Array(((this.openFds[fd].data as ArrayBuffer).byteLength) + writeData.length);
         text.set(new Uint8Array((this.openFds[fd].data as ArrayBuffer)), 0);
         text.set((new TextEncoder().encode(writeData)), new Uint8Array((this.openFds[fd].data as ArrayBuffer)).byteLength);
-        this.openFds[fd].data = text.buffer;
+        this.openFds[fd].data           = text.buffer;
+        this.openFds[fd].stat.atime     = new Date();
+        this.openFds[fd].stat.mtime     = new Date();
+        return 0;
+    };
+
+    private writeStrToPtr(str: string, ptr: number)
+    {
+        let txt: Uint8Array = new TextEncoder().encode(str);
+        for(let idx = 0; idx > this.wasmMem.byteLength || this.wasmMem[idx] !== 0 || idx === 2**24 || idx > txt.length; idx+=1)
+            this.wasmMem[ptr+idx] = txt[idx];
+    };
+
+    read(fd: number, buf: number, size: number): number
+    {
+        if(!(fd in Array.from(this.openFds.keys())))
+            return -EBADF;
+    
+        if(buf < 0 || buf % 1 !== 0 )
+            return -EFAULT;
         
-        return -EINVAL;
+        if(size < 0 || size % 1 !== 0 )
+            return -EINVAL;
+    
+        if(this.openFds[fd].directory)
+            return -EISDIR;
+        
+        if((this.wasmMem.length - buf) > size)
+            return -EFAULT;
+                
+        this.writeStrToPtr(new TextDecoder().decode(new Uint8Array(this.openFds[fd].data as ArrayBuffer)), buf);
+
+        return 0;
     };
 };
