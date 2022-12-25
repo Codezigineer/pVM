@@ -80,8 +80,9 @@ export class SyscallsList {
         return this.openFds.length;
     };
 
-    open(path: string, flags: number, mode: number): number 
+    open(pathPtr: number, flags: number, mode: number): number 
     {
+        let path = this.getStrAtPtr(pathPtr);
         let openF = this._open(path);
         if((flags & O_CREAT) == O_CREAT && openF == 0)
         {
@@ -218,4 +219,6 @@ export class SyscallsList {
 
         return 0;
     };
+
+    creat()
 };
