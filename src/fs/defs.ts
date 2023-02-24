@@ -14,6 +14,8 @@ export const INODEFLAGS =
     'ax+': 2 | 0o2000 | 0o100 | 0o200,
 };
 
+export const PAGESIZE = 65536;
+
 export class stat
 {
     dev: number;
