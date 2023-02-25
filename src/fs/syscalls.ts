@@ -29,6 +29,7 @@ export class SyscallsList
     group: number;
     wasmMem: Uint8ClampedArray;
     stackTop: number = 64; // * PAGESIZE
+    memMappings: {start: number, len: number, prot: number, flags: number, fd: number, off: number}[] = [];
 
     constructor(fs: FileSystem) 
     {
@@ -337,5 +338,34 @@ export class SyscallsList
         let o = this._doStat(this.openFds[file], buf);
         this.close(file);
         return o;
+    };
+    
+    _setMemWriteHook(func: (number) => void): number
+    {
+        // no-op
+    };
+    
+    _setMemReadHook(func: (number) => void): number
+    {
+        // no-op
+    };
+    
+    mmap(start: number, len: number, prot: number, flags: number, fd: number, off: number): number
+    {
+        let realStart = this._pgAlign(start);
+        let realLen = this._pgAlign(len);
+        // Make sure there are no overlapping mappings
+        for(const mapping of this.memoryMappings)
+            if(realStart === mapping.start ||
+               fd === mapping.fd ||
+               (realStart + len) > mapping.start) return -EINVAL;
+        this.memoryMappings.push({
+            start: realStart,
+            len: realLen,
+            prot: prot,
+            flags: flags,
+            fd: fd,
+            off: off
+        });
     };
 };
