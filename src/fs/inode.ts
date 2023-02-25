@@ -10,7 +10,6 @@ import
     S_IFREG, 
     S_IFSOCK
 } from "./defs";
-import { SyscallsList } from "./syscalls";
 
 export class inode
 {
@@ -62,7 +61,6 @@ export class inode
 
 export class FileSystem extends inode
 {
-    syscalls: SyscallsList[];
     private _realStat: stat;
     data: ArrayBuffer | null;
     childrenFiles: Map<string, number>;
