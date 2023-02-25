@@ -13,11 +13,13 @@ import {
 import { addPath, bytelen } from "./utils";
 import { FileSystem, inode } from "./inode";
 
-export type FileDescOptions = {
+export type FileDescOptions = 
+{
     seekPos: number;
 };
 
-export class SyscallsList {
+export class SyscallsList 
+{
     private fs: FileSystem;
     cwd: string;
     pid: number;
@@ -26,12 +28,15 @@ export class SyscallsList {
     user: number;
     group: number;
     wasmMem: Uint8ClampedArray;
+    stackTop: number = 64; // * PAGESIZE
 
-    constructor(fs: FileSystem) {
+    constructor(fs: FileSystem) 
+    {
         this.fs = fs;
     };
 
-    private _open(path: string): number {
+    private _open(path: string): number 
+    {
         if (bytelen(path) > 128)
             return -ENAME2BIG;
 
@@ -85,10 +90,10 @@ export class SyscallsList {
         let path = this.getStrAtPtr(pathPtr);
         let openF = this._open(path);
         if((flags & O_CREAT) == O_CREAT && openF == 0)
-        {
-            this.close(openF);
             return -EEXIST;
-        };
+        
+        if(this.openFds[openF].directory && !((flags & O_DIRECTORY) == O_DIRECTORY))
+            return -EISDIR;
 
         if((flags & O_CREAT) == O_CREAT)
         {
@@ -219,6 +224,118 @@ export class SyscallsList {
 
         return 0;
     };
+    
+    _pgAlign(size: number): number
+    {
+        return (number >> 16) << 16;
+    };
 
-    creat()
+    creat(path: number, mode: number): number
+    {
+        return this.open(path, O_WRONLY | O_EXCL | O_CREAT, mode);
+    };
+    
+    brk(point: number): number
+    {
+        if(this._pgAlign(point) < PAGESIZE * 16) return -ENOMEM;
+        this.stackTop = this._pgAlign(point);
+        return 0;
+    };
+    
+    private _doStat(node: inode, buf: number)
+    {
+        let dataView = new DataView(this.wasmMem.buffer, buf);
+        let offset = buf;
+        dataView.setUint32(offset, node.stat.dev);
+        offset += 4;
+        //stat32
+      //if(WSZ === 64) { dataView.setBigUint64(offset, BigInt(node.stat.ino)); offset += 8 }
+      /*else {*/ dataView.setUint32(buf + 4, BigInt(node.stat.ino)); offset += 4/*}*/;
+        dataView.setUint32(offset, node.stat.mode);
+        offset += 4;
+        dataView.setUint16(offset, node.stat.nlink);
+        offset += 2;
+        dataView.setUint32(offset, node.stat.uid);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.gid);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.rdev);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.size);
+        offset += 4;
+        dataView.setUint16(offset, node.stat.blksize);
+        offset += 2;
+        dataView.setUint32(offset, node.stat.blkcnt);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.atime.getTime());
+        offset += 4;
+        dataView.setUint32(offset, node.stat.ctime.getTime());
+        offset += 4;
+        dataView.setUint32(offset, node.stat.mtime.getTime());
+    };
+    
+    private _doStat64(node: inode, buf: number)
+    {
+        let dataView = new DataView(this.wasmMem.buffer, buf);
+        let offset = buf;
+        dataView.setUint32(offset, node.stat.dev);
+        offset += 4;
+        //stat64
+        dataView.setBigUint64(offset, BigInt(node.stat.ino)); offset += 8;
+      /*else { dataView.setUint32(buf + 4, BigInt(node.stat.ino)); offset += 4};*/
+        dataView.setUint32(offset, node.stat.mode);
+        offset += 4;
+        dataView.setUint16(offset, node.stat.nlink);
+        offset += 2;
+        dataView.setUint32(offset, node.stat.uid);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.gid);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.rdev);
+        offset += 4;
+        dataView.setBigUint64(offset, BigInt(node.stat.size));
+        offset += 8;
+        dataView.setUint16(offset, node.stat.blksize);
+        offset += 2;
+        dataView.setUint32(offset, node.stat.blkcnt);
+        offset += 4;
+        dataView.setUint32(offset, node.stat.atime.getTime());
+        offset += 4;
+        dataView.setUint32(offset, node.stat.ctime.getTime());
+        offset += 4;
+        dataView.setUint32(offset, node.stat.mtime.getTime());
+    };
+    
+    fstat(fd: number, buf: number): number
+    {
+         return this._doStat(this.openFds[fd], buf);
+    };
+    
+    lstat(path: number, buf: number): number
+    {
+        let file = this._open(this.getStrFromPtr(path));
+        
+        let o = this._doStat(this.openFds[file], buf);
+        this.close(file);
+        return o;
+    };
+    
+    
+    
+    stat(path: number, buf: number): number
+    {
+        let file = this._open(this.getStrFromPtr(path));
+        if((this.openFds[file].stat.mode & S_IFMT) == S_IFLNK)
+        {
+            let file2 = this._open(this.getStrFromPtr(new TextDecoder().decode(new Uint8Array(file.data))));
+        
+            let o2 = this._doStat(this.openFds[file2], buf);
+            this.close(file);
+            this.close(file2);
+            return o2;
+        };
+        let o = this._doStat(this.openFds[file], buf);
+        this.close(file);
+        return o;
+    };
 };
