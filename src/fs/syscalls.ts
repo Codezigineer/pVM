@@ -31,7 +31,7 @@ export class SyscallsList
     user: number;
     group: number;
     wasmMem: Uint8ClampedArray;
-    stackTop: number = 64; // * PAGESIZE
+    stackBottom: number = 64; // * PAGESIZE
     memMappings: {start: number, len: number, prot: number, flags: number, fd: number, off: number}[] = [];
 
     constructor(fs: FileSystem) 
@@ -242,7 +242,7 @@ export class SyscallsList
     brk(point: number): number
     {
         if(this._pgAlign(point) < PAGESIZE * 16) return -ENOMEM;
-        this.stackTop = this._pgAlign(point);
+        this.stackBottom = point / PAGESIZE;
         return 0;
     };
     
@@ -323,8 +323,6 @@ export class SyscallsList
         this.close(file);
         return o;
     };
-    
-    
     
     stat(path: number, buf: number): number
     {
