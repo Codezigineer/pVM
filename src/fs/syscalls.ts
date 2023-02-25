@@ -24,13 +24,13 @@ export type FileDescOptions =
 export class SyscallsList 
 {
     private fs: FileSystem;
-    cwd: string;
-    pid: number;
-    openFds: inode[];
-    fdOptions: FileDescOptions[];
-    user: number;
-    group: number;
-    wasmMem: Uint8ClampedArray;
+    cwd: string = "/";
+    pid: number = 0;
+    openFds: inode[] = [];
+    fdOptions: FileDescOptions[] = [];
+    user: number = 0;
+    group: number = 0;
+    wasmMem: Uint8ClampedArray = new Uint8ClampedArray(0);
     stackBottom: number = 64; // * PAGESIZE
     memMappings: {start: number, len: number, prot: number, flags: number, fd: number, off: number}[] = [];
 
@@ -373,5 +373,29 @@ export class SyscallsList
             fd: fd,
             off: off
         });
+    };
+    
+    getdents(fd: number, dirp: number, count: number): number
+    {
+        let offset = dirp;
+        if(!(fd in this.openFds)) return -EBADF;
+        if(!this.openFds[fd].directory) return -ENOTDIR;
+        let dv = new DataView(this.wasmMem.buffer);
+        for(const [name, ino] of Object.entries(this.openFds[fd].children))
+        {
+            if((buf - offset) > (count + bytelen(file.name) + offset + 8)) return 0;
+            let file = this.fs.inodes[ino];
+            dv.setUint32(offset, file.stat.ino);
+            offset += 4;
+            dv.setUint32(offset, bytelen(file.name) + offset + 8);
+            offset += 4;
+            dv.setUint16(offset, dirp - (bytelen(file.name) + offset + 8));
+            offset += 2;
+            this.writeStrToPtr(file.name, offset);
+            offset += bytelen(file.name) + 1;
+            dv.setUint8(offset, file.stat.mode);
+            offset += 1;
+        };
+        return 0;
     };
 };
