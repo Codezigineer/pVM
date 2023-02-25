@@ -14,24 +14,14 @@ import { SyscallsList } from "./syscalls";
 
 export class inode
 {
-    private _stat: stat;
-    private _name: string;
+    stat: stat;
+    name: string;
     data: ArrayBuffer | null;
     childrenFiles: (Map<string, number>) | null;
 
-    public get stat(): stat 
-    {
-        return this._stat;
-    }
-    
     isType(mask: number): boolean
     {
         return ((this.stat.mode & S_IFMT) == mask) as boolean;
-    };
-
-    get name(): string 
-    {
-        return this._name;
     };
 
     get directory(): boolean 
