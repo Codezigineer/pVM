@@ -14,9 +14,9 @@ import { SyscallsList } from "./syscalls";
 
 export class inode
 {
-    stat: stat;
-    name: string;
-    data: ArrayBuffer | null;
+    stat: stat = new stat();
+    name: string = "";
+    data: ArrayBuffer | null = null;
     childrenFiles: (Map<string, number>) | null;
 
     isType(mask: number): boolean
