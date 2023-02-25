@@ -18,23 +18,23 @@ export const PAGESIZE = 65536;
 
 export class stat
 {
-    dev: number;
-    ino: number;
-    mode: number;
-    nlink: number;
-    uid: number;
-    gid: number;
-    rdev: number;
-    size: number;
+    dev: number = 0;
+    ino: number = 0;
+    mode: number = 0;
+    nlink: number = 0;
+    uid: number = 0;
+    gid: number = 0;
+    rdev: number = 0;
+    size: number = 0;
     get blksize(): number
     {
         return 4096;
     };
-    blocks: number;
-    atime: Date;
-    mtime: Date;
-    ctime: Date;
-    birthtime: Date;
+    blocks: number = 0;
+    atime: Date = new Date();
+    mtime: Date = new Date();
+    ctime: Date = new Date();
+    birthtime: Date = new Date();
 };
 
 export const S_IFMT    = 0o170000,
