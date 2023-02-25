@@ -229,7 +229,7 @@ export class SyscallsList
         if((this.wasmMem.length - buf) > size)
             return -EFAULT;
         this.openFds[fd].stat.atime     = new Date();    
-        this.writeStrToPtr(new TextDecoder().decode(new Uint8Array(this.openFds[fd].data as ArrayBuffer).slice(this.fdOptions[fd], -size), buf);
+        this.writeStrToPtr(new TextDecoder().decode(new Uint8Array(this.openFds[fd].data as ArrayBuffer).slice(this.fdOptions[fd].seekPos, -size), buf);
 
         return 0;
     };
