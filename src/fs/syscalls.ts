@@ -8,7 +8,10 @@ import {
     ENAME2BIG,
     ENOENT,
     ENOTDIR,
-    O_CREAT
+    S_IFMT,
+    S_IFLNK,
+    O_CREAT,
+    O_DIRECTORY
 } from "./defs";
 import { addPath, bytelen } from "./utils";
 import { FileSystem, inode } from "./inode";
