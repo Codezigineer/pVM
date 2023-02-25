@@ -84,9 +84,7 @@ export class SyscallsList
             };
         };
 
-        this.openFds.push(curNode);
-
-        return this.openFds.length;
+        return this.openFds.push(curNode);
     };
 
     open(pathPtr: number, flags: number, mode: number): number 
@@ -96,8 +94,10 @@ export class SyscallsList
         if((flags & O_CREAT) == O_CREAT && openF == 0)
             return -EEXIST;
         
-        if(this.openFds[openF].directory && !((flags & O_DIRECTORY) == O_DIRECTORY))
+        if(this.openFds[openF].directory && (!((flags & O_DIRECTORY) == O_DIRECTORY)))
             return -EISDIR;
+        else if((!this.openFds[openF].directory) && ((flags & O_DIRECTORY) == O_DIRECTORY))
+            return -ENOTDIR;
 
         if((flags & O_CREAT) == O_CREAT)
         {
@@ -123,6 +123,10 @@ export class SyscallsList
                     return -ENOENT;
                 };
             };
+            
+            let name = "err";
+            if(dir.endsWith("/")) name = nodes[nodes.length-2];
+            else name = nodes[nodes.length-1];
 
             let file                            = this.fs.inodes.push(new inode());
             this.fs.inodes[file].stat.ino       = file;
@@ -137,6 +141,7 @@ export class SyscallsList
             this.fs.inodes[file].stat.blocks    = 0;
             this.fs.inodes[file].stat.uid       = this.user;
             this.fs.inodes[file].stat.gid       = this.group;
+            (curNode.childrenFiles as Map<string, number>)[name] = file;
 
         } else {
             this.close(openF);
