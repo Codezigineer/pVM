@@ -11,7 +11,8 @@ import {
     S_IFMT,
     S_IFLNK,
     O_CREAT,
-    O_DIRECTORY
+    O_DIRECTORY,
+    PAGESIZE
 } from "./defs";
 import { addPath, bytelen } from "./utils";
 import { FileSystem, inode } from "./inode";
@@ -194,12 +195,11 @@ export class SyscallsList
         if(this.openFds[fd].directory)
             return -EISDIR;
         
-        let writeData = this.getStrAtPtr(ptr);
+        let i = ptr-1;
+        while(this.wasmMem[i++]);
         
-        let text = new Uint8Array(((this.openFds[fd].data as ArrayBuffer).byteLength) + writeData.length);
-        text.set(new Uint8Array((this.openFds[fd].data as ArrayBuffer)), 0);
-        text.set((new TextEncoder().encode(writeData)), new Uint8Array((this.openFds[fd].data as ArrayBuffer)).byteLength);
-        this.openFds[fd].data           = text.buffer;
+        let text = this.wasmMem.slice(ptr, -((-i) + this.wasmMem.byteLength));
+        new Uint8Array(this.openFds[fd].data).set(text, this.fdOptions[fd].seekPos);
         this.openFds[fd].stat.atime     = new Date();
         this.openFds[fd].stat.mtime     = new Date();
         return 0;
@@ -228,15 +228,15 @@ export class SyscallsList
         
         if((this.wasmMem.length - buf) > size)
             return -EFAULT;
-                
-        this.writeStrToPtr(new TextDecoder().decode(new Uint8Array(this.openFds[fd].data as ArrayBuffer)), buf);
+        this.openFds[fd].stat.atime     = new Date();    
+        this.writeStrToPtr(new TextDecoder().decode(new Uint8Array(this.openFds[fd].data as ArrayBuffer).slice(this.fdOptions[fd], -size), buf);
 
         return 0;
     };
     
     _pgAlign(size: number): number
     {
-        return (number >> 16) << 16;
+        return number & (~(PAGESIZE - 1));
     };
 
     creat(path: number, mode: number): number
