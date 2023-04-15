@@ -398,4 +398,9 @@ export class SyscallsList
         };
         return 0;
     };
+    
+    getpid()
+    {
+        return this.pid;
+    };
 };
