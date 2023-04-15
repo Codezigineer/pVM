@@ -403,4 +403,16 @@ export class SyscallsList
     {
         return this.pid;
     };
+    
+    getcwd(buf: number, size: number)
+    {
+        this._writeStrToPtr(this.cwd.substring(0, Math.floor(size / 2)), buf);
+    };
+    
+    mkdir(path: number, mode: number): number
+    {
+        let fl = this.open(path, O_EXCL | O_CREAT, mode);
+        let file = this.openFds[fl];
+        file.
+    };
 };
